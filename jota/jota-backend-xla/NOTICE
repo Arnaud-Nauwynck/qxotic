@@ -1,0 +1,14 @@
+Jota XLA Backend
+Copyright 2026 Quixotic AI (https://qxotic.ai)
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This component includes work derived from OpenXLA (https://github.com/openxla/xla),
+Copyright The OpenXLA Authors, licensed under the Apache License, Version 2.0:
+  - the Java bindings in com.qxotic.jota.runtime.xla.pjrt follow the PJRT C API declared in
+    xla/pjrt/c/pjrt_c_api.h (struct layouts, enums, and the order of the PJRT_Api function
+    table in src/main/resources/com/qxotic/jota/runtime/xla/pjrt/pjrt-api-functions.txt);
+  - CompileOptions writes the CompileOptionsProto and ExecutableBuildOptionsProto messages of
+    xla/pjrt/proto/compile_options.proto.
+
+No OpenXLA binary is bundled: the PJRT plugin is a library the user provides.

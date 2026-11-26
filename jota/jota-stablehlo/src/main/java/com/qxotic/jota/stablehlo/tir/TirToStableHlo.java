@@ -7,6 +7,7 @@ import com.qxotic.jota.ir.tir.BinaryOp;
 import com.qxotic.jota.ir.tir.CastOp;
 import com.qxotic.jota.ir.tir.Contiguous;
 import com.qxotic.jota.ir.tir.GatherOp;
+import com.qxotic.jota.ir.tir.IRConstantFolder;
 import com.qxotic.jota.ir.tir.IotaConstant;
 import com.qxotic.jota.ir.tir.KernelStep;
 import com.qxotic.jota.ir.tir.RandomUniformOp;
@@ -69,6 +70,14 @@ public final class TirToStableHlo implements TIRVisitor<Value> {
 
     private final Block block = new Block();
     private final Map<TIRNode, Value> values = new IdentityHashMap<>();
+
+    /**
+     * Values that are splat {@code stablehlo.constant}s, with their scalar: a {@code convert} of
+     * one is folded (with jota's cast semantics) into a new constant. Besides being smaller, this
+     * avoids an IREE miscompile: {@code reduce(convert(splat constant))} yields one element instead
+     * of the sum (seen with IREE 3.14, for i1 and i8 splats).
+     */
+    private final Map<Value, ScalarConstant> splats = new IdentityHashMap<>();
 
     private TirToStableHlo() {}
 
@@ -321,7 +330,51 @@ public final class TirToStableHlo implements TIRVisitor<Value> {
         if (type(v).elementType().equals(to)) {
             return v;
         }
+        ScalarConstant splat = splats.get(v);
+        ScalarConstant folded =
+                splat == null ? null : castSplat(splat, TirTypes.dataType(to, "stablehlo.convert"));
+        if (folded != null) { // null: a cast jota does not fold (emitted as a convert)
+            DataType target = folded.dataType();
+            long bits = folded.rawBits();
+            if (target == DataType.BOOL) {
+                bits = bits != 0 ? 1 : 0;
+            }
+            Value c = constant(type(v).withElementType(to), bits);
+            splats.put(c, new ScalarConstant(bits, target, splat.shape()));
+            return c;
+        }
         return emit("stablehlo.convert", List.of(v), type(v).withElementType(to));
+    }
+
+    /**
+     * {@code splat} cast to {@code target} with jota's semantics, or null when not folded here:
+     * {@link IRConstantFolder#foldCast} plus BOOL, which it does not handle (a bool source is the
+     * integer 0 / 1; a bool target is {@code x != 0}, NaN included).
+     */
+    private static ScalarConstant castSplat(ScalarConstant splat, DataType target) {
+        DataType source = splat.dataType();
+        long bits = splat.rawBits();
+        if (target == DataType.BOOL) {
+            boolean nonZero;
+            if (source == DataType.FP32) {
+                nonZero =
+                        Float.intBitsToFloat((int) bits) != 0f
+                                || Float.isNaN(Float.intBitsToFloat((int) bits));
+            } else if (source == DataType.FP64) {
+                nonZero =
+                        Double.longBitsToDouble(bits) != 0d
+                                || Double.isNaN(Double.longBitsToDouble(bits));
+            } else if (source.isIntegral() || source == DataType.BOOL) {
+                nonZero = bits != 0;
+            } else {
+                return null; // fp16 / bf16: left to stablehlo.convert
+            }
+            return new ScalarConstant(nonZero ? 1 : 0, DataType.BOOL, splat.shape());
+        }
+        if (source == DataType.BOOL) {
+            splat = new ScalarConstant(bits != 0 ? 1 : 0, DataType.I8, splat.shape());
+        }
+        return IRConstantFolder.foldCast(splat, target);
     }
 
     private Value binary(String name, Value a, Value b) {
@@ -368,7 +421,9 @@ public final class TirToStableHlo implements TIRVisitor<Value> {
         if (node.dataType() == DataType.BOOL) {
             bits = bits != 0 ? 1 : 0;
         }
-        return constant(t, bits);
+        Value v = constant(t, bits);
+        splats.put(v, new ScalarConstant(bits, node.dataType(), node.shape()));
+        return v;
     }
 
     @Override

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.qxotic</groupId>
+    <artifactId>jota-aggregator</artifactId>
+    <version>0.4.0</version>
+  </parent>
+
+  <artifactId>jota-backend-isolated</artifactId>
+  <name>Jota Isolated Backend</name>
+  <description>Runs risky native code (backends, model loading, LLM calls) in a child JVM, talking
+    to it over a local Unix domain socket, so that a native crash fails the calls instead of
+    killing the calling JVM. Pure Java. Not published to Maven Central.</description>
+
+  <!-- Phases 1-3 (process, transport, supervision, shared memory) need nothing from jota;
+       the "isolated" device (phase 5) will add jota-tensor and jota-stablehlo. -->
+</project>

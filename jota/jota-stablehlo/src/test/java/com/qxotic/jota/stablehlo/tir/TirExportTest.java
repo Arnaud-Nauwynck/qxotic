@@ -41,15 +41,6 @@ class TirExportTest {
      * Traces {@code fn} over {@code inputs} and checks the export round trip; returns the program.
      */
     static Program check(List<Tensor> inputs, Function<List<Tensor>, Tensor> fn) {
-        return check(inputs, fn, null);
-    }
-
-    /**
-     * As {@link #check(List, Function)}; when {@code reference} is given it replaces executing the
-     * original traced graph (see {@link #softmaxOfMatmul()}).
-     */
-    static Program check(
-            List<Tensor> inputs, Function<List<Tensor>, Tensor> fn, DenseElementsAttr reference) {
         Tensor traced = Tracer.trace(inputs, fn);
         TIRGraph graph = TracedGraphs.graphOf(traced);
         Program program = TirToStableHlo.export(graph);
@@ -80,8 +71,7 @@ class TirExportTest {
             }
         }
         TensorType resultType = back.resultTypes().getFirst();
-        DenseElementsAttr expected =
-                reference != null ? reference : dense(traced.materialize(), resultType);
+        DenseElementsAttr expected = dense(traced.materialize(), resultType);
         MemoryView<?> actual =
                 TracedGraphs.execute(
                         back.graph(),
@@ -104,11 +94,7 @@ class TirExportTest {
         return Tensor.of(values, shape);
     }
 
-    /**
-     * The reference is computed independently: jota cannot execute this traced graph itself (its
-     * panama kernel for {@code l.subtract(l.max(true, 1))} reads out of bounds), while the
-     * round-tripped graph, whose broadcasts are explicit, runs correctly.
-     */
+    /** Softmax with keep-dims reductions broadcast back explicitly (jota has no implicit one). */
     @Test
     void softmaxOfMatmul() {
         Tensor x = f32(Shape.of(2, 3), 1f, -2f, 0.5f, 0.25f, 3f, -1f);
@@ -117,39 +103,10 @@ class TirExportTest {
                 List.of(x, w),
                 t -> {
                     Tensor logits = t.get(0).matmul(t.get(1));
-                    Tensor e = logits.subtract(logits.max(true, 1)).exp();
-                    return e.divide(e.sum(DataType.FP32, true, 1));
-                },
-                softmaxReference());
-    }
-
-    /** softmax(x · w) in double precision for the inputs of {@link #softmaxOfMatmul()}. */
-    private static DenseElementsAttr softmaxReference() {
-        double[][] x = {{1, -2, 0.5}, {0.25, 3, -1}};
-        double[][] w = {{0.5, 1, -1, 2}, {1.5, -0.5, 0, 1}, {2, 0.25, 1, -1}};
-        StringBuilder sb = new StringBuilder("dense<[");
-        for (int i = 0; i < 2; i++) {
-            double[] l = new double[4];
-            double max = Double.NEGATIVE_INFINITY;
-            for (int j = 0; j < 4; j++) {
-                for (int k = 0; k < 3; k++) {
-                    l[j] += x[i][k] * w[k][j];
-                }
-                max = Math.max(max, l[j]);
-            }
-            double sum = 0;
-            for (int j = 0; j < 4; j++) {
-                l[j] = Math.exp(l[j] - max);
-                sum += l[j];
-            }
-            sb.append(i > 0 ? ", [" : "[");
-            for (int j = 0; j < 4; j++) {
-                sb.append(j > 0 ? ", " : "").append((float) (l[j] / sum));
-            }
-            sb.append(']');
-        }
-        return (DenseElementsAttr)
-                MlirParser.parseAttribute(sb.append("]> : tensor<2x4xf32>").toString());
+                    Shape shape = logits.shape();
+                    Tensor e = logits.subtract(logits.max(true, 1).expand(shape)).exp();
+                    return e.divide(e.sum(DataType.FP32, true, 1).expand(shape));
+                });
     }
 
     @Test

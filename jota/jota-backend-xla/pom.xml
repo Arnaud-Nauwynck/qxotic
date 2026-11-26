@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.qxotic</groupId>
+    <artifactId>jota-aggregator</artifactId>
+    <version>0.4.0</version>
+  </parent>
+
+  <artifactId>jota-backend-xla</artifactId>
+  <name>Jota XLA Backend</name>
+  <description>Runs jota graphs on XLA: exports them to StableHLO and compiles and executes them
+    through a PJRT C API plugin (loaded with the FFM API, not bundled). Not published to Maven
+    Central.</description>
+
+  <properties>
+    <!-- Follows the PJRT C API of OpenXLA (Apache-2.0): the module embeds its own NOTICE. -->
+    <qxotic.notice.dir>${project.basedir}</qxotic.notice.dir>
+    <!-- Optional: the PJRT plugin to test against, e.g.
+         -Djota.xla.plugin=/path/to/xla_cpu_pjrt.so (see README.md for the other sources). -->
+    <jota.xla.plugin />
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.qxotic</groupId>
+      <artifactId>jota-stablehlo</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <!-- tests trace real tensor code into TIR graphs: needs a runtime -->
+    <dependency>
+      <groupId>com.qxotic</groupId>
+      <artifactId>jota-backend-panama</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <systemPropertyVariables>
+            <jota.xla.plugin>${jota.xla.plugin}</jota.xla.plugin>
+          </systemPropertyVariables>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
+  <profiles>
+    <!-- -Pxla: also run the shared jota-tensor / jota-memory suites on the xla device
+         (needs a plugin, e.g. -Djota.xla.plugin=/path/to/xla_cpu_pjrt.so). -->
+    <profile>
+      <id>xla</id>
+      <properties>
+        <jota.test.device>xla</jota.test.device>
+      </properties>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>build-helper-maven-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>shared-test-sources</id>
+                <goals>
+                  <goal>add-test-source</goal>
+                </goals>
+                <phase>generate-test-sources</phase>
+                <configuration>
+                  <sources>
+                    <source>${project.basedir}/../jota-tensor/src/testkit/java</source>
+                    <source>${project.basedir}/../jota-memory/src/testkit/java</source>
+                  </sources>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+</project>

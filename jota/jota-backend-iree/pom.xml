@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.qxotic</groupId>
+    <artifactId>jota-aggregator</artifactId>
+    <version>0.4.0</version>
+  </parent>
+
+  <artifactId>jota-backend-iree</artifactId>
+  <name>Jota IREE Backend</name>
+  <description>Experimental IREE backend for Jota: TIR graphs exported to StableHLO, compiled
+    ahead of time by the IREE compiler (libIREECompiler, through its stable C API and FFM) into
+    .vmfb modules. Not published to Maven Central.</description>
+
+  <properties>
+    <!-- Optional: path to libIREECompiler.so (or the directory holding it) for the tests that
+         compile; same key as at runtime, also readable from JOTA_IREE_COMPILER_LIB,
+         ./config/jota.properties or ~/jota/jota.properties. -->
+    <jota.iree.compiler.lib />
+    <!-- Optional: path to libjota_iree_rt.so (built from src/main/native), same lookup order. -->
+    <jota.iree.runtime.lib />
+
+    <!-- Native runtime library (src/main/native), built only with -Piree-native and
+         -Diree.source.dir=/path/to/iree (a checkout at the compiler's revision, with the
+         third_party/flatcc submodule); packaged under META-INF/native/<os>/<arch>/. -->
+    <iree.source.dir />
+    <skipNative.backend.iree>true</skipNative.backend.iree>
+    <native.library.basename>jota_iree_rt</native.library.basename>
+    <native.skip.build>${skipNative.backend.iree}</native.skip.build>
+    <native.copy.skip>${skipNative.backend.iree}</native.copy.skip>
+    <native.configure.extraArgs>-DIREE_SOURCE_DIR=${iree.source.dir}</native.configure.extraArgs>
+    <native.build.extraArgs>-j</native.build.extraArgs>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.qxotic</groupId>
+      <artifactId>jota-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.qxotic</groupId>
+      <artifactId>jota-tensor</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.qxotic</groupId>
+      <artifactId>jota-stablehlo</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.qxotic</groupId>
+      <artifactId>jota-backend-panama</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <!-- cmake configure / build of src/main/native, skipped unless -Piree-native -->
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <systemPropertyVariables>
+            <!-- an empty value means "not set here": the resolver then falls through to the
+                 environment and the properties files -->
+            <jota.iree.compiler.lib>${jota.iree.compiler.lib}</jota.iree.compiler.lib>
+            <jota.iree.runtime.lib>${jota.iree.runtime.lib}</jota.iree.runtime.lib>
+          </systemPropertyVariables>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
+  <profiles>
+    <!-- -Piree-native -Diree.source.dir=...: build libjota_iree_rt and package it in the jar. -->
+    <profile>
+      <id>iree-native</id>
+      <properties>
+        <skipNative.backend.iree>false</skipNative.backend.iree>
+      </properties>
+    </profile>
+    <!-- -Piree: also run the shared jota-tensor / jota-memory suites on the iree device
+         (needs the compiler and the runtime library, see README.md). -->
+    <profile>
+      <id>iree</id>
+      <properties>
+        <jota.test.device>iree</jota.test.device>
+      </properties>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>build-helper-maven-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>shared-test-sources</id>
+                <goals>
+                  <goal>add-test-source</goal>
+                </goals>
+                <phase>generate-test-sources</phase>
+                <configuration>
+                  <sources>
+                    <source>${project.basedir}/../jota-tensor/src/testkit/java</source>
+                    <source>${project.basedir}/../jota-memory/src/testkit/java</source>
+                  </sources>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+
+</project>
