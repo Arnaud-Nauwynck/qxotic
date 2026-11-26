@@ -55,6 +55,39 @@ class ComparisonOpTest {
         }
     }
 
+    /** Every ordered comparison with a NaN operand is false, and only != is true (IEEE 754). */
+    @Test
+    void comparisonsWithNaNFollowIeee() {
+        Shape shape = Shape.of(4);
+        for (DataType dataType :
+                List.of(DataType.FP16, DataType.BF16, DataType.FP32, DataType.FP64)) {
+            Tensor left =
+                    Tensor.of(new float[] {Float.NaN, 1f, Float.NaN, 2f}, shape).cast(dataType);
+            Tensor right =
+                    Tensor.of(new float[] {1f, Float.NaN, Float.NaN, 2f}, shape).cast(dataType);
+            int[] lessThan = {0, 0, 0, 0};
+            int[] equalOnly = {0, 0, 0, 1};
+            int[] notEqual = {1, 1, 1, 0};
+            assertBools(lessThan, Tracer.trace(left, right, Tensor::lessThan), dataType, "<");
+            assertBools(lessThan, Tracer.trace(left, right, Tensor::greaterThan), dataType, ">");
+            assertBools(
+                    equalOnly, Tracer.trace(left, right, Tensor::lessThanOrEqual), dataType, "<=");
+            assertBools(
+                    equalOnly,
+                    Tracer.trace(left, right, Tensor::greaterThanOrEqual),
+                    dataType,
+                    ">=");
+            assertBools(equalOnly, Tracer.trace(left, right, Tensor::equal), dataType, "==");
+            assertBools(notEqual, Tracer.trace(left, right, Tensor::notEqual), dataType, "!=");
+        }
+    }
+
+    private void assertBools(int[] expected, Tensor actual, DataType dataType, String op) {
+        for (int i = 0; i < expected.length; i++) {
+            assertEquals(expected[i], readBool(actual, i), dataType + " " + op + " at " + i);
+        }
+    }
+
     private Tensor range(DataType dataType, Shape shape) {
         if (dataType == DataType.BOOL) {
             return boolPattern(shape);

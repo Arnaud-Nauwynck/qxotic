@@ -279,6 +279,35 @@ final class ConstantFolder {
 
     // endregion Compare folding
 
+    // region Logical folding
+
+    /** Folds {@code and} / {@code or} / {@code xor} of two constant booleans. */
+    static Optional<Tensor> tryFoldLogicalOp(Tensor left, Tensor right, BinaryOp op) {
+        Optional<ConstantComputation> leftConst = asConstant(left);
+        Optional<ConstantComputation> rightConst = asConstant(right);
+        if (leftConst.isEmpty() || rightConst.isEmpty()) {
+            return Optional.empty();
+        }
+        ConstantComputation lc = leftConst.get();
+        ConstantComputation rc = rightConst.get();
+        boolean a = lc.value().longValue() != 0;
+        boolean b = rc.value().longValue() != 0;
+        boolean result;
+        if (op == BinaryOp.LOGICAL_AND) {
+            result = a && b;
+        } else if (op == BinaryOp.LOGICAL_OR) {
+            result = a || b;
+        } else if (op == BinaryOp.LOGICAL_XOR) {
+            result = a ^ b;
+        } else {
+            throw new UnsupportedOperationException("Cannot fold logical op: " + op);
+        }
+        Shape resultShape = lc.shape().size() >= rc.shape().size() ? lc.shape() : rc.shape();
+        return Optional.of(broadcastedOf(result ? 1L : 0L, DataType.BOOL, resultShape));
+    }
+
+    // endregion Logical folding
+
     // region Cast folding
 
     static Optional<Tensor> tryFoldCast(Tensor tensor, DataType targetType) {

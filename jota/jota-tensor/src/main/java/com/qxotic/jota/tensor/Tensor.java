@@ -371,12 +371,14 @@ public interface Tensor {
         return other.lessThan(this);
     }
 
+    /** {@code this < other || this == other}: false when either side is NaN, as in IEEE 754. */
     default Tensor lessThanOrEqual(Tensor other) {
-        return other.lessThan(this).logicalNot();
+        return lessThan(other).logicalOr(equal(other));
     }
 
+    /** {@code other < this || this == other}: false when either side is NaN, as in IEEE 754. */
     default Tensor greaterThanOrEqual(Tensor other) {
-        return lessThan(other).logicalNot();
+        return other.lessThan(this).logicalOr(equal(other));
     }
 
     // endregion Bitwise / Logical / Comparison Operations

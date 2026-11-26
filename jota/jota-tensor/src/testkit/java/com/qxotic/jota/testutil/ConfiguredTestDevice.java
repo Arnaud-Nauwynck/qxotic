@@ -28,7 +28,12 @@ public final class ConfiguredTestDevice {
             case "mojo" -> resolvePreferredOrZero(environment, DeviceType.MOJO);
             case "opencl" -> resolvePreferredOrZero(environment, DeviceType.OPENCL);
             case "metal" -> resolvePreferredOrZero(environment, DeviceType.METAL);
-            default -> parseLogicalDevice(environment, raw);
+            // any other runtime by its device type id (backends outside jota-tensor, e.g. iree,
+            // xla): "<runtime>" means index 0
+            default ->
+                    normalized.contains(":")
+                            ? parseLogicalDevice(environment, raw)
+                            : resolvePreferredOrZero(environment, DeviceType.fromId(normalized));
         };
     }
 
@@ -78,7 +83,7 @@ public final class ConfiguredTestDevice {
                     case "opencl" -> DeviceType.OPENCL;
                     case "metal" -> DeviceType.METAL;
                     case "java" -> DeviceType.JAVA;
-                    default -> null;
+                    default -> runtime.isBlank() ? null : DeviceType.fromId(runtime);
                 };
         if (type == null) {
             throw invalidDevice(raw);
@@ -97,6 +102,6 @@ public final class ConfiguredTestDevice {
                         + "='"
                         + raw
                         + "'. Supported values: native, default, panama, c, hip, cuda, mojo,"
-                        + " opencl, metal, <runtime>:<index>");
+                        + " opencl, metal, <runtime>, <runtime>:<index>");
     }
 }

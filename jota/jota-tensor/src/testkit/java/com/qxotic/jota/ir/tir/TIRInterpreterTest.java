@@ -265,6 +265,22 @@ class TIRInterpreterTest {
         assertIntEquals(new int[] {1, 2, -3}, outputs.get(0));
     }
 
+    /** Any non-zero float is true, NaN included, as on the compiled backends (not truncated). */
+    @Test
+    void testCastFP32toBool() {
+        MemoryView<?> input = createFloatTensor(new float[] {0.5f, -0.3f, Float.NaN, 0f, -0f, 2f});
+
+        TIRNode tensorInput = new TensorInput(0, DataType.FP32, input.layout());
+        TIRNode castOp = new CastOp(tensorInput, DataType.BOOL);
+        TIRGraph graph = new TIRGraph(List.of(tensorInput), List.of(castOp));
+
+        List<MemoryView<MemorySegment>> outputs =
+                TIRInterpreter.execute(graph, List.of(input), memoryDomain);
+
+        assertEquals(DataType.BOOL, outputs.get(0).dataType());
+        assertBoolEquals(new boolean[] {true, true, true, false, false, true}, outputs.get(0));
+    }
+
     @Test
     void testCastI32toFP32() {
         MemoryView<?> input = createIntTensor(new int[] {1, 2, 3, 4});

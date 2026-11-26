@@ -117,6 +117,16 @@ final class TensorSupport {
                 .orElseGet(() -> dispatchBinaryOp(self, other, tracedOp, eagerOp));
     }
 
+    static Tensor dispatchFoldedLogicalOp(
+            Tensor self,
+            Tensor other,
+            BinaryOp foldOp,
+            BiFunction<Tensor, Tensor, Tensor> tracedOp,
+            BiFunction<Tensor, Tensor, Tensor> eagerOp) {
+        return ConstantFolder.tryFoldLogicalOp(self, other, foldOp)
+                .orElseGet(() -> dispatchBinaryOp(self, other, tracedOp, eagerOp));
+    }
+
     static Tensor dispatchFoldedUnaryOp(
             Tensor self,
             UnaryOp foldOp,

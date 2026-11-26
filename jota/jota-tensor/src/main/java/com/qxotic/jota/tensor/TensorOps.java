@@ -82,12 +82,14 @@ interface TensorOps {
         return lessThan(b, a);
     }
 
+    /** {@code a < b || a == b}: false when either side is NaN, as in IEEE 754. */
     default Tensor lessThanOrEqual(Tensor a, Tensor b) {
-        return logicalNot(lessThan(b, a));
+        return logicalOr(lessThan(a, b), equal(a, b));
     }
 
+    /** {@code b < a || a == b}: false when either side is NaN, as in IEEE 754. */
     default Tensor greaterThanOrEqual(Tensor a, Tensor b) {
-        return logicalNot(lessThan(a, b));
+        return logicalOr(lessThan(b, a), equal(a, b));
     }
 
     Tensor where(Tensor condition, Tensor trueValue, Tensor falseValue);

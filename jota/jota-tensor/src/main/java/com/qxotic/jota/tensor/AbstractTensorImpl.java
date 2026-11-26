@@ -685,27 +685,30 @@ abstract class AbstractTensorImpl implements Tensor {
 
     public Tensor logicalAnd(Tensor other) {
         TensorTypeSemantics.requireBooleanPair(dataType(), other.dataType(), "logicalAnd");
-        return TensorSupport.dispatchBinaryOp(
+        return TensorSupport.dispatchFoldedLogicalOp(
                 this,
                 other,
+                BinaryOp.LOGICAL_AND,
                 (left, right) -> TensorSupport.irOps().logicalAnd(left, right),
                 Tensor::logicalAnd);
     }
 
     public Tensor logicalOr(Tensor other) {
         TensorTypeSemantics.requireBooleanPair(dataType(), other.dataType(), "logicalOr");
-        return TensorSupport.dispatchBinaryOp(
+        return TensorSupport.dispatchFoldedLogicalOp(
                 this,
                 other,
+                BinaryOp.LOGICAL_OR,
                 (left, right) -> TensorSupport.irOps().logicalOr(left, right),
                 Tensor::logicalOr);
     }
 
     public Tensor logicalXor(Tensor other) {
         TensorTypeSemantics.requireBooleanPair(dataType(), other.dataType(), "logicalXor");
-        return TensorSupport.dispatchBinaryOp(
+        return TensorSupport.dispatchFoldedLogicalOp(
                 this,
                 other,
+                BinaryOp.LOGICAL_XOR,
                 (left, right) -> TensorSupport.irOps().logicalXor(left, right),
                 Tensor::logicalXor);
     }

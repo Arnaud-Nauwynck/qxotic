@@ -886,8 +886,12 @@ final class TIREvalVisitor implements TIRVisitor<MemoryView<MemorySegment>> {
                 long value = readAsLong(input, sourceDtype, inOffset);
                 memAccess.writeLong(output.memory(), outOffset, value);
             } else if (targetDtype == DataType.BOOL) {
-                long value = readAsLong(input, sourceDtype, inOffset);
-                memAccess.writeByte(output.memory(), outOffset, (byte) (value != 0 ? 1 : 0));
+                // any non-zero value is true, NaN included (as in C and the compiled backends)
+                boolean value =
+                        sourceDtype.isFloatingPoint()
+                                ? readAsDouble(input, sourceDtype, inOffset) != 0.0
+                                : readAsLong(input, sourceDtype, inOffset) != 0;
+                memAccess.writeByte(output.memory(), outOffset, (byte) (value ? 1 : 0));
             } else {
                 throw new UnsupportedOperationException(
                         "Unsupported target data type: " + targetDtype);

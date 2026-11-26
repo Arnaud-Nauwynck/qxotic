@@ -76,7 +76,8 @@ final class TensorSemantics {
         if (!leftIsTrueScalar && rightIsTrueScalar) {
             return left;
         }
-        if (!left.isCongruentWith(right)) {
+        // equal sizes, not only the same nesting: (2, 3) against (2, 1) would read out of bounds
+        if (!left.equals(right)) {
             throw new IllegalArgumentException(
                     "Incompatible shapes: "
                             + left
@@ -84,7 +85,8 @@ final class TensorSemantics {
                             + right
                             + ". Note: Only true scalar tensors (shape.isScalar() == true) can be"
                             + " broadcast, not broadcasted tensors. Use Tensor.scalar(value) to"
-                            + " create scalar values.");
+                            + " create scalar values, or expand(shape) to broadcast size-1"
+                            + " dimensions.");
         }
         return left;
     }
